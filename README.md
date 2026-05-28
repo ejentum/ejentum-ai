@@ -1,8 +1,8 @@
 # ejentum-ai
 
-[Vercel AI SDK](https://sdk.vercel.ai) integration for the [Ejentum](https://ejentum.com) Reasoning Harness. `createEjentumTools()` returns four agent-callable tools (`harness_reasoning`, `harness_code`, `harness_anti_deception`, `harness_memory`) you pass to `generateText`/`streamText`.
+[Vercel AI SDK](https://sdk.vercel.ai) integration for the [Ejentum](https://ejentum.com) Reasoning Harness. `createEjentumTools()` returns eight agent-callable tools you pass to `generateText`/`streamText`: four dynamic (`reasoning`, `code`, `anti-deception`, `memory`) plus four adaptive (`adaptive-reasoning`, `adaptive-code`, `adaptive-anti-deception`, `adaptive-memory`) that pre-fit the cognitive operation to the caller's task via an adapter LLM.
 
-Each operation in the Ejentum library (679 of them, organized across four harnesses) is engineered in **two layers**:
+Each operation in the Ejentum library (679 of them, organized across four cognitive harnesses each with dynamic and adaptive variants) is engineered in **two layers**:
 
 - a **natural-language procedure** the model can read, naming the steps to take and the failure pattern to refuse, and
 - an **executable reasoning topology**: a graph-shaped plan over those steps. The plan names explicit decision points where the model branches, parallel branches that run and rejoin, bounded loops that run until convergence, named meta-cognitive moments where the model is asked to stop, look at its own working, and re-enter at a specific step, plus escape paths for when the prescribed plan stops fitting the task at hand.
@@ -19,10 +19,10 @@ npm install ai zod
 
 ## Configuration
 
-Get an Ejentum API key at <https://ejentum.com/pricing> (free and paid tiers) and set it in your environment:
+Get an Ejentum API key at <https://ejentum.com/pricing>. The 30-day free trial (no card required) includes 1,000 dynamic reasoning calls; adaptive tools require Go or Super.
 
 ```bash
-export EJENTUM_API_KEY="zpka_..."
+export EJENTUM_API_KEY="ej_..."
 ```
 
 Or pass it explicitly: `createEjentumTools({ apiKey: "..." })`.
@@ -46,7 +46,7 @@ const { text } = await generateText({
 console.log(text);
 ```
 
-The model reads each tool's description and routes to `harness_anti_deception` on the sunk-cost framing, `harness_reasoning` on a clean analytical question, etc.
+The model reads each tool's description and routes to `anti-deception` on the sunk-cost framing, `reasoning` on a clean analytical question, etc.
 
 ### Streaming
 
@@ -73,20 +73,33 @@ for await (const chunk of result.textStream) {
 import { createReasoningTool, createAntiDeceptionTool } from "ejentum-ai";
 
 const tools = {
-  harness_reasoning: createReasoningTool(),
-  harness_anti_deception: createAntiDeceptionTool(),
+  reasoning: createReasoningTool(),
+  "anti-deception": createAntiDeceptionTool(),
   // ...your other non-Ejentum tools
 };
 ```
 
-## The four tools
+> **Hyphenated keys.** In Vercel AI SDK the OBJECT KEY is the tool name shown to the LLM. The default `createEjentumTools()` returns hyphenated canonical keys (`reasoning`, `code`, `anti-deception`, `memory`, `adaptive-reasoning`, `adaptive-code`, `adaptive-anti-deception`, `adaptive-memory`) to match the API mode strings exactly. If you build the object yourself, quote the hyphenated keys.
+
+## The eight tools
+
+### Dynamic (single retrieval, all tiers including the 30-day free trial)
 
 | Tool key | Best for | Library size |
 |---|---|---|
-| `harness_reasoning` | Analytical, diagnostic, planning, multi-step tasks spanning abstraction, time, causality, simulation, spatial, and metacognition | 311 operations |
-| `harness_code` | Code generation, refactoring, review, and debugging across the software-engineering layer | 128 operations |
-| `harness_anti_deception` | Prompts that pressure the agent to validate, certify, or soften an honest assessment | 139 operations |
-| `harness_memory` | Sharpening an observation already formed about cross-turn drift. Filter-oriented, not write-oriented. Format `query` as `"I noticed X. This might mean Y. Sharpen: Z."` | 101 operations |
+| `reasoning` | Analytical, diagnostic, planning, multi-step tasks spanning abstraction, time, causality, simulation, spatial, and metacognition | 311 operations |
+| `code` | Code generation, refactoring, review, and debugging across the software-engineering layer | 128 operations |
+| `anti-deception` | Prompts that pressure the agent to validate, certify, or soften an honest assessment | 139 operations |
+| `memory` | Sharpening an observation already formed about cross-turn drift. Filter-oriented, not write-oriented. Format `query` as `"I noticed X. This might mean Y. Sharpen: Z."` | 101 operations |
+
+### Adaptive (top-k retrieval + adapter LLM rewrites operation to fit the task; Go or Super tier required)
+
+| Tool key | When to prefer over the dynamic version |
+|---|---|
+| `adaptive-reasoning` | High-stakes analytical work where every DAG node should be mapped to your specifics before generation. Cost ~2-3s vs ~1s for `reasoning`. |
+| `adaptive-code` | Security-critical reviews, refactor-heavy diffs, or any code work where every verification step should be concretized to language, framework, and failure modes. |
+| `adaptive-anti-deception` | When the stakes of a soft or sycophantic answer are high; detection topology gates are concretized to the exact pressure or framing trap at play. |
+| `adaptive-memory` | When the dynamic memory tool's general scaffold is not sharp enough for the perception being formed. Observe FIRST, then call. |
 
 ## What an injection looks like
 
@@ -136,15 +149,20 @@ createEjentumTools(config?: EjentumConfig): EjentumTools
 
 | Config field | Default | Description |
 |---|---|---|
-| `apiKey` | `process.env.EJENTUM_API_KEY` | Ejentum Logic API key. |
-| `apiUrl` | `https://ejentum-main-ab125c3.zuplo.app/logicv1/` | Override only if you self-host the gateway. |
+| `apiKey` | `process.env.EJENTUM_API_KEY` | Ejentum API key. |
+| `apiUrl` | `https://api.ejentum.com/harness/` | Override only if you self-host the gateway. |
 | `timeoutMs` | `10000` | Per-call HTTP timeout in milliseconds. |
 
-Per-tool factories: `createReasoningTool`, `createCodeTool`, `createAntiDeceptionTool`, `createMemoryTool`. Each accepts the same `EjentumConfig` and returns a Vercel AI SDK `Tool`. Errors are returned as human-readable strings from `execute` (no exceptions cross the tool boundary, so a step never crashes the run).
+Per-tool factories (all accept the same `EjentumConfig` and return a Vercel AI SDK `Tool`):
+
+- Dynamic: `createReasoningTool`, `createCodeTool`, `createAntiDeceptionTool`, `createMemoryTool`
+- Adaptive: `createAdaptiveReasoningTool`, `createAdaptiveCodeTool`, `createAdaptiveAntiDeceptionTool`, `createAdaptiveMemoryTool`
+
+Errors are returned as human-readable strings from `execute` (no exceptions cross the tool boundary, so a step never crashes the run).
 
 ## ejentum-mcp alternative
 
-If you'd rather wire the same four tools via the Model Context Protocol (one MCP server consumable from any MCP-aware framework), Ejentum hosts the MCP server at `https://api.ejentum.com/mcp` with Bearer auth. From Vercel AI SDK:
+If you'd rather wire the same eight tools via the Model Context Protocol (one MCP server consumable from any MCP-aware framework), Ejentum hosts the MCP server at `https://api.ejentum.com/mcp` with Bearer auth. From Vercel AI SDK:
 
 ```ts
 import { experimental_createMCPClient as createMCPClient } from "ai";
