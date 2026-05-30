@@ -1,11 +1,13 @@
 /**
  * ejentum-ai: Vercel AI SDK integration for the Ejentum Reasoning Harness.
  *
- * Re-exports the four Ejentum harness tools and the
- * `createEjentumTools()` factory. Pass the factory's return value
- * to `generateText({ tools, ... })` or `streamText({ tools, ... })`.
+ * Re-exports the eight Ejentum harness tools (four dynamic + four
+ * adaptive) and the `createEjentumTools()` factory. Pass the factory's
+ * return value to `generateText({ tools, ... })` or
+ * `streamText({ tools, ... })`.
  *
- * Free and paid tiers at https://ejentum.com/pricing.
+ * 30-day free trial, then €5 Go or €25 Super for adaptive tools.
+ * Pricing at https://ejentum.com/pricing.
  */
 
 export {
@@ -14,6 +16,10 @@ export {
   createCodeTool,
   createAntiDeceptionTool,
   createMemoryTool,
+  createAdaptiveReasoningTool,
+  createAdaptiveCodeTool,
+  createAdaptiveAntiDeceptionTool,
+  createAdaptiveMemoryTool,
   type EjentumTools,
 } from "./tools.js";
 
@@ -26,4 +32,4 @@ export {
   type HarnessMode,
 } from "./api.js";
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.2.0";

@@ -1,11 +1,17 @@
 /**
  * Vercel AI SDK `tool()` factories for the Ejentum Reasoning Harness.
  *
- * Each tool is built with `tool()` from the `ai` package: a Zod
- * schema for the input, a description the LLM reads, and an
- * `execute` async function that calls the Ejentum Logic API.
+ * Eight tools: four dynamic (`reasoning`, `code`, `anti-deception`,
+ * `memory`) and four adaptive (`adaptive-reasoning`, `adaptive-code`,
+ * `adaptive-anti-deception`, `adaptive-memory`) that pre-fit the
+ * cognitive operation to the caller's task via an adapter LLM.
+ * Adaptive tools require the Go or Super tier.
  *
- * The bracketed labels in the returned scaffold (`[NEGATIVE GATE]`,
+ * Tool name == API mode string. In Vercel AI SDK, the key on the
+ * returned object IS the tool name shown to the LLM, so the keys
+ * here use hyphens to match the canonical naming.
+ *
+ * The bracketed labels in the returned injection (`[NEGATIVE GATE]`,
  * `[PROCEDURE]`, `[REASONING TOPOLOGY]`, `[FALSIFICATION TEST]`,
  * etc.) are instructions to the agent, not content to display.
  */
@@ -22,116 +28,159 @@ const querySchema = z.object({
     .describe(
       "A 1-2 sentence description of the task the agent is about " +
         "to work on. Be specific about the failure mode to avoid. " +
-        "For the memory tool, format as: 'I noticed [X]. This " +
-        "might mean [Y]. Sharpen: [Z].'",
+        "For memory and adaptive-memory, format as: 'I noticed [X]. " +
+        "This might mean [Y]. Sharpen: [Z].'",
     ),
 });
 
-/**
- * Reasoning-mode harness tool. Call BEFORE the agent performs
- * analysis, diagnosis, planning, or any multi-step task. Library
- * of 311 reasoning operations spanning abstraction, time,
- * causality, simulation, spatial, and metacognition.
- */
+// ---------------------------------------------------------------------------
+// Dynamic tools (single retrieval, all tiers including the 30-day trial)
+// ---------------------------------------------------------------------------
+
 export function createReasoningTool(config: EjentumConfig = {}) {
   return tool({
     description:
-      "Retrieve a reasoning scaffold before any analytical, " +
-      "diagnostic, planning, or multi-step task. Returns a " +
-      "structured scaffold with a named failure pattern, an " +
-      "executable procedure, a reasoning topology (graph DAG), " +
-      "and a falsification test from a library of 311 reasoning " +
-      "operations. Use 'query' to describe what the agent is " +
-      "about to work on in 1-2 sentences.",
+      "Retrieve a reasoning injection before any analytical, " +
+      "diagnostic, planning, or multi-step task. Returns a structured " +
+      "injection with a named failure pattern, an executable procedure, " +
+      "a reasoning topology (graph DAG), and a falsification test from " +
+      "a library of 311 reasoning operations. Use 'query' to describe " +
+      "what the agent is about to work on in 1-2 sentences.",
     parameters: querySchema,
     execute: async ({ query }) => callLogicApi("reasoning", query, config),
   });
 }
 
-/**
- * Code-mode harness tool. Call BEFORE the agent produces or
- * reviews code. Library of 128 software-engineering operations
- * covering correctness, refactor safety, contract preservation,
- * edge case coverage, error path discipline.
- */
 export function createCodeTool(config: EjentumConfig = {}) {
   return tool({
     description:
-      "Retrieve a code scaffold before any code generation, " +
-      "refactoring, review, or debugging task. Returns a " +
-      "structured scaffold with a named code-failure pattern, an " +
-      "engineering procedure, a reasoning topology (graph DAG), " +
-      "and a verification step from a library of 128 code " +
-      "operations. Use 'query' to describe what the agent is " +
-      "coding or reviewing in 1-2 sentences; include the failure " +
-      "risk to avoid where possible.",
+      "Retrieve a code injection before any code generation, " +
+      "refactoring, review, or debugging task. Returns a structured " +
+      "injection with a named code-failure pattern, an engineering " +
+      "procedure, a reasoning topology (graph DAG), and a verification " +
+      "step from a library of 128 code operations.",
     parameters: querySchema,
     execute: async ({ query }) => callLogicApi("code", query, config),
   });
 }
 
-/**
- * Anti-deception harness tool. Call BEFORE the agent responds to
- * prompts that pressure validation, manufactured agreement,
- * authority appeals, fabricated commitments, or any setup where
- * the obvious helpful answer would compromise honesty. Library of
- * 139 anti-deception operations spanning sycophancy,
- * hallucination, deception, adversarial framing, judgment, and
- * executive control.
- */
 export function createAntiDeceptionTool(config: EjentumConfig = {}) {
   return tool({
     description:
-      "Retrieve an anti-deception scaffold before responding to " +
-      "any prompt that pressures the agent to validate, certify, " +
-      "or soften an honest assessment. Returns a structured " +
-      "scaffold with a named deception pattern, an integrity " +
-      "procedure, a detection topology (graph DAG with " +
-      "omission-bias gates), and an integrity check. Use 'query' " +
-      "to describe the integrity dynamic at play in 1-2 sentences.",
+      "Retrieve an anti-deception injection before responding to any " +
+      "prompt that pressures the agent to validate, certify, or soften " +
+      "an honest assessment. Returns a structured injection with a " +
+      "named deception pattern, an integrity procedure, a detection " +
+      "topology (graph DAG with omission-bias gates), and an integrity " +
+      "check from a library of 139 operations.",
     parameters: querySchema,
     execute: async ({ query }) =>
       callLogicApi("anti-deception", query, config),
   });
 }
 
-/**
- * Memory-mode harness tool. Call ONLY when sharpening an
- * observation the agent has already formed about cross-turn
- * drift or pattern. Filter-oriented, not write-oriented; do not
- * call for fact extraction. Library of 101 perception operations.
- */
 export function createMemoryTool(config: EjentumConfig = {}) {
   return tool({
     description:
-      "Retrieve a memory-mode scaffold ONLY when sharpening an " +
+      "Retrieve a memory-mode injection ONLY when sharpening an " +
       "observation the agent has already formed about cross-turn " +
-      "drift or pattern. Filter-oriented, not write-oriented; do " +
-      "not call for fact extraction. Format 'query' as: 'I " +
-      "noticed [X]. This might mean [Y]. Sharpen: [Z].' Calling " +
-      "with an empty mind defeats the harness.",
+      "drift or pattern. Filter-oriented, not write-oriented; do not " +
+      "call for fact extraction. Format 'query' as: 'I noticed [X]. " +
+      "This might mean [Y]. Sharpen: [Z].' Library of 101 perception " +
+      "operations.",
     parameters: querySchema,
     execute: async ({ query }) => callLogicApi("memory", query, config),
   });
 }
 
-/**
- * Return value of `createEjentumTools`. Pass this directly to
- * `generateText({ tools, ... })` or `streamText({ tools, ... })`.
- */
-export interface EjentumTools {
-  harness_reasoning: ReturnType<typeof createReasoningTool>;
-  harness_code: ReturnType<typeof createCodeTool>;
-  harness_anti_deception: ReturnType<typeof createAntiDeceptionTool>;
-  harness_memory: ReturnType<typeof createMemoryTool>;
+// ---------------------------------------------------------------------------
+// Adaptive tools (top-k retrieval + LLM adapter rewrites operation to fit
+// the specific task; requires Go or Super tier)
+// ---------------------------------------------------------------------------
+
+export function createAdaptiveReasoningTool(config: EjentumConfig = {}) {
+  return tool({
+    description:
+      "Same triggers as `reasoning`, but the returned operation is " +
+      "REWRITTEN by an adapter LLM to fit the specific task. Procedure " +
+      "steps and topology DAG nodes are concretized with task-specific " +
+      "language. Use when the dynamic reasoning tool is too generic, or " +
+      "for high-stakes analytical work where every DAG node should " +
+      "already be mapped to the task before generation. Requires Go or " +
+      "Super tier (250 or 1500 adaptive calls per month). Cost ~2-3s.",
+    parameters: querySchema,
+    execute: async ({ query }) =>
+      callLogicApi("adaptive-reasoning", query, config),
+  });
+}
+
+export function createAdaptiveCodeTool(config: EjentumConfig = {}) {
+  return tool({
+    description:
+      "Same triggers as `code`, but the returned operation is REWRITTEN " +
+      "by an adapter LLM to fit the specific code task: language, " +
+      "framework, and failure modes are concretized in every step. Use " +
+      "for security-critical reviews, refactor-heavy diffs, or any code " +
+      "work where every verification step should already be mapped to " +
+      "the specifics. Requires Go or Super tier. Cost ~2-3s.",
+    parameters: querySchema,
+    execute: async ({ query }) =>
+      callLogicApi("adaptive-code", query, config),
+  });
+}
+
+export function createAdaptiveAntiDeceptionTool(config: EjentumConfig = {}) {
+  return tool({
+    description:
+      "Same triggers as `anti-deception`, but the returned operation is " +
+      "REWRITTEN by an adapter LLM to fit the specific integrity " +
+      "dynamic: detection topology gates are concretized to the exact " +
+      "pressure, authority appeal, or framing trap at play. Use when " +
+      "stakes of a soft or sycophantic answer are high. Requires Go or " +
+      "Super tier. Cost ~2-3s.",
+    parameters: querySchema,
+    execute: async ({ query }) =>
+      callLogicApi("adaptive-anti-deception", query, config),
+  });
+}
+
+export function createAdaptiveMemoryTool(config: EjentumConfig = {}) {
+  return tool({
+    description:
+      "Same triggers as `memory`, but the returned operation is " +
+      "REWRITTEN by an adapter LLM to fit the specific observation: " +
+      "perception topology nodes are concretized to the specific " +
+      "signal. Use when the dynamic memory tool's general scaffold is " +
+      "not sharp enough for the perception being formed. Observe FIRST, " +
+      "then call. Requires Go or Super tier. Cost ~2-3s.",
+    parameters: querySchema,
+    execute: async ({ query }) =>
+      callLogicApi("adaptive-memory", query, config),
+  });
 }
 
 /**
- * Create all four Ejentum harness tools with shared config.
+ * Return value of `createEjentumTools`. In Vercel AI SDK the OBJECT
+ * KEY is the tool name shown to the LLM, so the keys here use hyphens
+ * to match the canonical Ejentum naming.
+ */
+export interface EjentumTools {
+  reasoning: ReturnType<typeof createReasoningTool>;
+  code: ReturnType<typeof createCodeTool>;
+  "anti-deception": ReturnType<typeof createAntiDeceptionTool>;
+  memory: ReturnType<typeof createMemoryTool>;
+  "adaptive-reasoning": ReturnType<typeof createAdaptiveReasoningTool>;
+  "adaptive-code": ReturnType<typeof createAdaptiveCodeTool>;
+  "adaptive-anti-deception": ReturnType<typeof createAdaptiveAntiDeceptionTool>;
+  "adaptive-memory": ReturnType<typeof createAdaptiveMemoryTool>;
+}
+
+/**
+ * Create all eight Ejentum harness tools with shared config.
  *
- * Pass the returned object as the `tools` argument of
- * `generateText` or `streamText`. The LLM picks the right
- * harness per turn based on each tool's description.
+ * Pass the returned object as the `tools` argument of `generateText`
+ * or `streamText`. The LLM picks the right harness per turn based on
+ * each tool's description.
  *
  * ```ts
  * import { generateText } from "ai";
@@ -153,9 +202,13 @@ export function createEjentumTools(
   config: EjentumConfig = {},
 ): EjentumTools {
   return {
-    harness_reasoning: createReasoningTool(config),
-    harness_code: createCodeTool(config),
-    harness_anti_deception: createAntiDeceptionTool(config),
-    harness_memory: createMemoryTool(config),
+    reasoning: createReasoningTool(config),
+    code: createCodeTool(config),
+    "anti-deception": createAntiDeceptionTool(config),
+    memory: createMemoryTool(config),
+    "adaptive-reasoning": createAdaptiveReasoningTool(config),
+    "adaptive-code": createAdaptiveCodeTool(config),
+    "adaptive-anti-deception": createAdaptiveAntiDeceptionTool(config),
+    "adaptive-memory": createAdaptiveMemoryTool(config),
   };
 }
