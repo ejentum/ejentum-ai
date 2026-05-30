@@ -2,6 +2,8 @@
 
 [Vercel AI SDK](https://sdk.vercel.ai) integration for the Ejentum Reasoning Harness. `createEjentumTools()` returns an object of eight tools you pass as the `tools` argument to `generateText` / `streamText`. Each tool calls the Ejentum API and returns a structured injection (procedure + topology DAG + cognitive payload) the LLM consumes internally before producing its response.
 
+Use the harness before the agent generates on complex, multi-step, or multi-constraint tasks where the model's default reasoning template would miss a constraint, take a shortcut, or drift across turns. Each call returns a *cognitive operation*: a structured procedure (numbered steps with a failure pattern to refuse and a falsification test) paired with an executable reasoning topology (a DAG of those steps with decision gates, parallel branches, bounded loops, and meta-cognitive exit nodes). The agent reads both layers before producing its response.
+
 Four dynamic tools (`reasoning`, `code`, `anti-deception`, `memory`) are available on all tiers including the 30-day free trial. Four adaptive tools (`adaptive-reasoning`, `adaptive-code`, `adaptive-anti-deception`, `adaptive-memory`) additionally run an adapter LLM step that rewrites the matched operation's procedure and topology with task-specific identifiers; they require the Go or Super tier.
 
 ## Install
